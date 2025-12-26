@@ -1,2 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local data
 data/
+
+# Environment variables
 .env
+
+# OS
+.DS_Store
