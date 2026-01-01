@@ -1,10 +1,21 @@
 import os
+import argparse
 import pandas as pd
-from datetime import date
 from azure.storage.blob import BlobServiceClient
 
 # -------------------------------------------------------------------
-# 1. Azure connection
+# 1. Parse arguments
+# -------------------------------------------------------------------
+parser = argparse.ArgumentParser(description="Transform OWID Bronze → Silver")
+parser.add_argument(
+    "--snapshot-date",
+    required=False,
+    help="Snapshot date to process (YYYY-MM-DD). Defaults to latest available."
+)
+args = parser.parse_args()
+
+# -------------------------------------------------------------------
+# 2. Azure connection
 # -------------------------------------------------------------------
 AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 if not AZURE_CONNECTION_STRING:
@@ -14,14 +25,36 @@ blob_service_client = BlobServiceClient.from_connection_string(
     AZURE_CONNECTION_STRING
 )
 
-# -------------------------------------------------------------------
-# 2. Paths
-# -------------------------------------------------------------------
-snapshot_date = "2025-12-26"
-
 bronze_container = "bronze"
 silver_container = "silver"
 
+# -------------------------------------------------------------------
+# 3. Resolve snapshot date
+# -------------------------------------------------------------------
+owid_prefix = "owid/"
+
+container_client = blob_service_client.get_container_client(bronze_container)
+
+snapshots = set()
+
+for blob in container_client.list_blobs(name_starts_with=owid_prefix):
+    parts = blob.name.split("/")
+    for part in parts:
+        if part.startswith("snapshot_date="):
+            snapshots.add(part.replace("snapshot_date=", ""))
+
+if not snapshots:
+    raise RuntimeError("No Bronze snapshots found")
+
+latest_snapshot = sorted(snapshots)[-1]
+
+snapshot_date = args.snapshot_date or latest_snapshot
+
+print(f"📅 Using snapshot_date={snapshot_date}")
+
+# -------------------------------------------------------------------
+# 4. Paths
+# -------------------------------------------------------------------
 bronze_blob_path = (
     f"owid/snapshot_date={snapshot_date}/owid-co2-data.csv"
 )
@@ -30,15 +63,16 @@ silver_blob_path = (
     f"owid/snapshot_date={snapshot_date}/owid-co2-data.parquet"
 )
 
+os.makedirs("data/raw", exist_ok=True)
+os.makedirs("data/silver", exist_ok=True)
+
 local_raw = "data/raw/owid-co2-data.csv"
 local_silver = "data/silver/owid-co2-data.parquet"
 
-os.makedirs("data/silver", exist_ok=True)
-
 # -------------------------------------------------------------------
-# 3. Download Bronze data
+# 5. Download Bronze data
 # -------------------------------------------------------------------
-print("⬇️ Reading Bronze data from Azure...")
+print("⬇️ Downloading Bronze data...")
 
 bronze_blob_client = blob_service_client.get_blob_client(
     container=bronze_container,
@@ -54,10 +88,8 @@ print(f"Rows: {len(df):,}")
 print(f"Columns: {len(df.columns)}")
 
 # -------------------------------------------------------------------
-# 4. Basic cleaning (Silver rules)
+# 6. Silver transformations
 # -------------------------------------------------------------------
-
-# Standardize column names
 df.columns = (
     df.columns
     .str.strip()
@@ -65,14 +97,12 @@ df.columns = (
     .str.replace(" ", "_")
 )
 
-# Ensure year is integer
 df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
 
-# Drop rows with no country or year
 df = df.dropna(subset=["country", "year"])
 
 # -------------------------------------------------------------------
-# 5. Write Silver data (Parquet)
+# 7. Write Silver Parquet
 # -------------------------------------------------------------------
 df.to_parquet(local_silver, index=False)
 
