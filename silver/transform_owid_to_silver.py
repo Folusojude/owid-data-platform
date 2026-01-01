@@ -17,7 +17,7 @@ blob_service_client = BlobServiceClient.from_connection_string(
 # -------------------------------------------------------------------
 # 2. Paths
 # -------------------------------------------------------------------
-snapshot_date = date.today().isoformat()
+snapshot_date = "2025-12-26"
 
 bronze_container = "bronze"
 silver_container = "silver"
