@@ -101,8 +101,82 @@ df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
 
 df = df.dropna(subset=["country", "year"])
 
+
+
+# --------------------------------------------------------
+# 7. Add Quality Checks
+# --------------------------------------------------------
+
+from datetime import datetime
+
+def run_data_quality_checks(df: pd.DataFrame) -> None:
+    """
+    Run basic data quality checks on the Silver dataset.
+    Raises ValueError if any check fails.
+    """
+
+    print("🔎 Running data quality checks...")
+
+    # ----------------------------------------------------
+    # A. Dataset not empty
+    # ----------------------------------------------------
+    if df.empty:
+        raise ValueError("❌ Data quality check failed: DataFrame is empty")
+
+    # ----------------------------------------------------
+    # B. Required columns exist
+    # ----------------------------------------------------
+    required_columns = {"country", "year"}
+    missing_columns = required_columns - set(df.columns)
+
+    if missing_columns:
+        raise ValueError(
+            f"❌ Missing required columns: {missing_columns}"
+        )
+
+    # ----------------------------------------------------
+    # C. Null checks
+    # ----------------------------------------------------
+    if df["country"].isna().any():
+        raise ValueError("❌ Null values found in 'country' column")
+
+    if df["year"].isna().any():
+        raise ValueError("❌ Null values found in 'year' column")
+
+    # ----------------------------------------------------
+    # D. Year range validation
+    # ----------------------------------------------------
+    current_year = datetime.now().year
+
+    invalid_years = df[
+        (df["year"] < 1750) | (df["year"] > current_year)
+    ]
+
+    if not invalid_years.empty:
+        raise ValueError(
+            f"❌ Invalid years detected outside 1750–{current_year}"
+        )
+
+    # ----------------------------------------------------
+    # E. CO₂ values must be non-negative (if column exists)
+    # ----------------------------------------------------
+    if "co2" in df.columns:
+        negative_co2 = df[df["co2"] < 0]
+
+        if not negative_co2.empty:
+            raise ValueError("❌ Negative CO₂ values detected")
+
+    print("✅ Data quality checks passed")
+
+
 # -------------------------------------------------------------------
-# 7. Write Silver Parquet
+# 8. Data Quality Checks
+# -------------------------------------------------------------------
+run_data_quality_checks(df)
+
+
+# -------------------------------------------------------------------
+# 9. Write Silver Parquet
 # -------------------------------------------------------------------
 df.to_parquet(local_silver, index=False)
 
