@@ -63,13 +63,12 @@ with open(local_silver, "wb") as f:
 df = pd.read_parquet(local_silver)
 
 # -------------------------------------------------------------------
-# 5. Build dimension table (robust to missing columns)
+# 5. Build dimension table with surrogate key
 # -------------------------------------------------------------------
-print("🧭 Building dim_country...")
+print("🧭 Building dim_country with surrogate key...")
 
 dim_columns = ["iso_code", "country"]
 
-# Add continent only if it exists
 if "continent" in df.columns:
     dim_columns.append("continent")
 
@@ -77,23 +76,48 @@ dim_country = (
     df[dim_columns]
     .dropna(subset=["iso_code"])
     .drop_duplicates()
-    .rename(columns={"iso_code": "country_id"})
+    .sort_values("iso_code")
+    .reset_index(drop=True)
 )
 
-# -------------------------------------------------------------------
-# 6. Build fact table
-# -------------------------------------------------------------------
-print("📊 Building fact_emissions...")
+# Add surrogate key
+dim_country["country_sk"] = dim_country.index + 1
 
-metric_columns = [
+# Rename for clarity
+dim_country = dim_country.rename(columns={"iso_code": "country_id"})
+
+# -------------------------------------------------------------------
+# 6. Build fact table and join surrogate key
+# -------------------------------------------------------------------
+print("📊 Building fact_emissions with surrogate key...")
+
+fact_columns = [
     col for col in df.columns
     if col not in ["country", "continent"]
 ]
 
-fact_emissions = (
-    df[metric_columns]
-    .rename(columns={"iso_code": "country_id"})
+fact_emissions = df[fact_columns]
+
+# Join surrogate key
+fact_emissions = fact_emissions.merge(
+    dim_country[["country_sk", "country_id"]],
+    left_on="iso_code",
+    right_on="country_id",
+    how="left"
 )
+
+# Drop natural key from fact table
+fact_emissions = fact_emissions.drop(
+    columns=["iso_code", "country_id"]
+)
+
+# Reorder columns (best practice)
+cols = ["country_sk", "year"] + [
+    c for c in fact_emissions.columns
+    if c not in ["country_sk", "year"]
+]
+
+fact_emissions = fact_emissions[cols]
 
 # -------------------------------------------------------------------
 # 7. Write Gold tables
