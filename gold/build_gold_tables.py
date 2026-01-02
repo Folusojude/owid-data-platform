@@ -63,12 +63,18 @@ with open(local_silver, "wb") as f:
 df = pd.read_parquet(local_silver)
 
 # -------------------------------------------------------------------
-# 5. Build dimension table
+# 5. Build dimension table (robust to missing columns)
 # -------------------------------------------------------------------
 print("🧭 Building dim_country...")
 
+dim_columns = ["iso_code", "country"]
+
+# Add continent only if it exists
+if "continent" in df.columns:
+    dim_columns.append("continent")
+
 dim_country = (
-    df[["iso_code", "country", "continent"]]
+    df[dim_columns]
     .dropna(subset=["iso_code"])
     .drop_duplicates()
     .rename(columns={"iso_code": "country_id"})
