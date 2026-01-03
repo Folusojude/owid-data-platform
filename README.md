@@ -8,33 +8,47 @@ This project is intentionally designed to prioritize **correctness, reproducibil
 ---
 
 ## 🏗 Architecture Overview
-'''mermaid
+```mermaid
 flowchart LR
-    A[OWID CO2 and GHG Dataset\nRaw CSV Files] -->|Web Ingestion| B
+    %% =========================
+    %% Data Source
+    %% =========================
+    A[OWID CO₂ & GHG Dataset<br/>Raw CSV Files] -->|Web Ingestion| B
 
-    subgraph ADLS["Azure Data Lake Storage Gen2"]
+    %% =========================
+    %% Azure Data Lake
+    %% =========================
+    subgraph ADLS[Azure Data Lake Storage Gen2]
         direction LR
 
-        B[Bronze Layer\nRaw Snapshot Data\nsnapshot_date=YYYY-MM-DD]
-        C[Silver Layer\nCleaned and Validated Data\nParquet Format]
-        D[Gold Layer\nAnalytics Ready Data]
+        %% Bronze Layer
+        B[🥉 Bronze Layer<br/>Raw Snapshot Data<br/>snapshot_date=YYYY-MM-DD]
 
-        B -->|Transform and Validate| C
+        %% Silver Layer
+        C[🥈 Silver Layer<br/>Cleaned & Validated Data<br/>Parquet Format]
+
+        %% Gold Layer
+        D[🥇 Gold Layer<br/>Analytics-Ready Data]
+
+        B -->|Transform & Validate| C
         C -->|Dimensional Modeling| D
     end
 
-    subgraph GOLD["Gold Data Model"]
+    %% =========================
+    %% Gold Layer Details
+    %% =========================
+    subgraph GOLD[Gold Data Model]
         direction TB
 
-        D1[Dimension Table\ndim_country\nSurrogate Keys]
-        D2[Fact Table\nfact_emissions\ncountry by year metrics]
-        D3[Aggregation Tables\nGlobal Emissions\nTop Emitters\nPer Capita]
+        D1[📐 Dimension Table<br/>dim_country<br/>Surrogate Keys]
+        D2[📊 Fact Table<br/>fact_emissions<br/>country × year × metrics]
+        D3[📈 Aggregations<br/>Global, Top Emitters,<br/>Per-Capita]
 
         D --> D1
         D --> D2
         D --> D3
     end
-'''
+```
 
 The platform follows a layered lakehouse-style architecture:
 
@@ -141,3 +155,51 @@ Build Gold tables and aggregations:
 python gold/build_gold_tables.py --snapshot-date YYYY-MM-DD
 
 
+                         +-----------------------------+
+                         |   OWID CO2 & GHG Dataset    |
+                         |        (Raw CSV)            |
+                         +--------------+--------------+
+                                        |
+                                        |  Web Ingestion
+                                        v
+        +-------------------------------------------------------------+
+        |                 Azure Data Lake Storage Gen2                |
+        |                                                             |
+        |   +--------------------+    +--------------------+          |
+        |   |    BRONZE LAYER    |    |    SILVER LAYER    |          |
+        |   |--------------------|    |--------------------|          |
+        |   | - Raw snapshots    |--->| - Cleaned data     |          |
+        |   | - snapshot_date=   |    | - Schema enforced  |          |
+        |   |   YYYY-MM-DD       |    | - Quality checks   |          |
+        |   | - CSV format       |    | - Parquet format   |          |
+        |   +--------------------+    +--------------------+          |
+        |                                     |                       |
+        |                                     | Dimensional Modeling  |
+        |                                     v                       |
+        |                            +--------------------+           |
+        |                            |     GOLD LAYER     |           |
+        |                            |--------------------|           |
+        |                            | - Analytics ready  |           |
+        |                            | - Star schema      |           |
+        |                            | - Aggregations     |           |
+        |                            +----------+---------+           |
+        |                                       |                     |
+        +---------------------------------------|---------------------+
+                                                |
+                                                v
+                          +-------------------------------------------+
+                          |               GOLD DATA MODEL             |
+                          |-------------------------------------------|
+                          |                                           |
+                          |  Dimension Tables:                        |
+                          |    - dim_country                          |
+                          |                                           |
+                          |  Fact Tables:                             |
+                          |    - fact_emissions                       |
+                          |                                           |
+                          |  Aggregations:                            |
+                          |    - Global emissions by year             |
+                          |    - Top emitting countries               |
+                          |    - CO2 emissions per capita             |
+                          |                                           |
+                          +-------------------------------------------+
