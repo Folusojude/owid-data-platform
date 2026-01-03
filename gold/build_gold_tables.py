@@ -229,3 +229,60 @@ blob_service_client.get_blob_client(
 
 print("🏆 Top emitters aggregation written successfully!")
 
+
+# -------------------------------------------------------------------
+# 12. Build Gold aggregation: CO₂ per capita
+# -------------------------------------------------------------------
+print("👥 Building per-capita emissions aggregation...")
+
+required_cols = {"co2", "population"}
+missing = required_cols - set(fact_emissions.columns)
+
+if missing:
+    raise ValueError(f"Missing required columns for per-capita calc: {missing}")
+
+# Aggregate emissions & population per country per year
+country_year = (
+    fact_emissions
+    .groupby(["year", "country_sk"], as_index=False)
+    .agg(
+        total_co2=("co2", "sum"),
+        population=("population", "mean")  # population is annual
+    )
+)
+
+# Defensive filtering
+country_year = country_year[
+    (country_year["population"] > 0) &
+    (country_year["total_co2"].notna())
+]
+
+# Compute per-capita metric
+country_year["co2_per_capita"] = (
+    country_year["total_co2"] / country_year["population"]
+)
+
+# Keep only analytics columns
+per_capita = country_year[
+    ["year", "country_sk", "co2_per_capita"]
+].round(6)
+
+# -------------------------------------------------------------------
+# 13. Write per-capita aggregation
+# -------------------------------------------------------------------
+local_per_capita = "data/gold/agg_emissions_per_capita.parquet"
+
+per_capita_blob_path = (
+    f"agg_emissions_per_capita/"
+    f"snapshot_date={snapshot_date}/"
+    f"agg_emissions_per_capita.parquet"
+)
+
+per_capita.to_parquet(local_per_capita, index=False)
+
+blob_service_client.get_blob_client(
+    container=gold_container,
+    blob=per_capita_blob_path
+).upload_blob(open(local_per_capita, "rb"), overwrite=True)
+
+print("🏆 Per-capita emissions aggregation written successfully!")
