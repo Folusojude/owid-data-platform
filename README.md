@@ -8,6 +8,46 @@ This project is intentionally designed to prioritize **correctness, reproducibil
 ---
 
 ## 🏗 Architecture Overview
+flowchart LR
+    %% =========================
+    %% Data Source
+    %% =========================
+    A[OWID CO₂ & GHG Dataset<br/>Raw CSV Files] -->|Web Ingestion| B
+
+    %% =========================
+    %% Azure Data Lake
+    %% =========================
+    subgraph ADLS[Azure Data Lake Storage Gen2]
+        direction LR
+
+        %% Bronze Layer
+        B[🥉 Bronze Layer<br/>Raw Snapshot Data<br/>snapshot_date=YYYY-MM-DD]
+
+        %% Silver Layer
+        C[🥈 Silver Layer<br/>Cleaned & Validated Data<br/>Parquet Format]
+
+        %% Gold Layer
+        D[🥇 Gold Layer<br/>Analytics-Ready Data]
+
+        B -->|Transform & Validate| C
+        C -->|Dimensional Modeling| D
+    end
+
+    %% =========================
+    %% Gold Layer Details
+    %% =========================
+    subgraph GOLD[Gold Data Model]
+        direction TB
+
+        D1[📐 Dimension Table<br/>dim_country<br/>Surrogate Keys]
+        D2[📊 Fact Table<br/>fact_emissions<br/>country × year × metrics]
+        D3[📈 Aggregations<br/>Global, Top Emitters,<br/>Per-Capita]
+
+        D --> D1
+        D --> D2
+        D --> D3
+    end
+
 
 The platform follows a layered lakehouse-style architecture:
 
