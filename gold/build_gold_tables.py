@@ -181,3 +181,51 @@ blob_service_client.get_blob_client(
 
 print("🏆 Gold aggregation written successfully!")
 
+
+# -------------------------------------------------------------------
+# 10. Build Gold aggregation: Top emitting countries per year
+# -------------------------------------------------------------------
+print("🏅 Building top emitting countries per year...")
+
+TOP_N = 10
+
+# Aggregate CO₂ per country per year
+country_year_emissions = (
+    fact_emissions
+    .groupby(["year", "country_sk"], as_index=False)
+    .agg(total_co2=("co2", "sum"))
+)
+
+# Rank countries within each year
+country_year_emissions["rank"] = (
+    country_year_emissions
+    .groupby("year")["total_co2"]
+    .rank(method="dense", ascending=False)
+)
+
+# Keep Top N
+top_emitters = country_year_emissions[
+    country_year_emissions["rank"] <= TOP_N
+].sort_values(["year", "rank"])
+
+
+# -------------------------------------------------------------------
+# 11. Write Top Emitters aggregation
+# -------------------------------------------------------------------
+local_top_emitters = "data/gold/agg_top_emitters_by_year.parquet"
+
+top_emitters_blob_path = (
+    f"agg_top_emitters_by_year/"
+    f"snapshot_date={snapshot_date}/"
+    f"agg_top_emitters_by_year.parquet"
+)
+
+top_emitters.to_parquet(local_top_emitters, index=False)
+
+blob_service_client.get_blob_client(
+    container=gold_container,
+    blob=top_emitters_blob_path
+).upload_blob(open(local_top_emitters, "rb"), overwrite=True)
+
+print("🏆 Top emitters aggregation written successfully!")
+
