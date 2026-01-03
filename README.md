@@ -8,47 +8,54 @@ This project is intentionally designed to prioritize **correctness, reproducibil
 ---
 
 ## 🏗 Architecture Overview
-```mermaid
-flowchart LR
-    %% =========================
-    %% Data Source
-    %% =========================
-    A[OWID CO₂ & GHG Dataset<br/>Raw CSV Files] -->|Web Ingestion| B
-
-    %% =========================
-    %% Azure Data Lake
-    %% =========================
-    subgraph ADLS[Azure Data Lake Storage Gen2]
-        direction LR
-
-        %% Bronze Layer
-        B[🥉 Bronze Layer<br/>Raw Snapshot Data<br/>snapshot_date=YYYY-MM-DD]
-
-        %% Silver Layer
-        C[🥈 Silver Layer<br/>Cleaned & Validated Data<br/>Parquet Format]
-
-        %% Gold Layer
-        D[🥇 Gold Layer<br/>Analytics-Ready Data]
-
-        B -->|Transform & Validate| C
-        C -->|Dimensional Modeling| D
-    end
-
-    %% =========================
-    %% Gold Layer Details
-    %% =========================
-    subgraph GOLD[Gold Data Model]
-        direction TB
-
-        D1[📐 Dimension Table<br/>dim_country<br/>Surrogate Keys]
-        D2[📊 Fact Table<br/>fact_emissions<br/>country × year × metrics]
-        D3[📈 Aggregations<br/>Global, Top Emitters,<br/>Per-Capita]
-
-        D --> D1
-        D --> D2
-        D --> D3
-    end
-```
+                        +-----------------------------+
+                         |   OWID CO2 & GHG Dataset    |
+                         |        (Raw CSV)            |
+                         +--------------+--------------+
+                                        |
+                                        |  Web Ingestion
+                                        v
+        +-------------------------------------------------------------+
+        |                 Azure Data Lake Storage Gen2                |
+        |                                                             |
+        |   +--------------------+    +--------------------+          |
+        |   |    BRONZE LAYER    |    |    SILVER LAYER    |          |
+        |   |--------------------|    |--------------------|          |
+        |   | - Raw snapshots    |--->| - Cleaned data     |          |
+        |   | - snapshot_date=   |    | - Schema enforced  |          |
+        |   |   YYYY-MM-DD       |    | - Quality checks   |          |
+        |   | - CSV format       |    | - Parquet format   |          |
+        |   +--------------------+    +--------------------+          |
+        |                                     |                       |
+        |                                     | Dimensional Modeling  |
+        |                                     v                       |
+        |                            +--------------------+           |
+        |                            |     GOLD LAYER     |           |
+        |                            |--------------------|           |
+        |                            | - Analytics ready  |           |
+        |                            | - Star schema      |           |
+        |                            | - Aggregations     |           |
+        |                            +----------+---------+           |
+        |                                       |                     |
+        +---------------------------------------|---------------------+
+                                                |
+                                                v
+                          +-------------------------------------------+
+                          |               GOLD DATA MODEL             |
+                          |-------------------------------------------|
+                          |                                           |
+                          |  Dimension Tables:                        |
+                          |    - dim_country                          |
+                          |                                           |
+                          |  Fact Tables:                             |
+                          |    - fact_emissions                       |
+                          |                                           |
+                          |  Aggregations:                            |
+                          |    - Global emissions by year             |
+                          |    - Top emitting countries               |
+                          |    - CO2 emissions per capita             |
+                          |                                           |
+                          +-------------------------------------------+
 
 The platform follows a layered lakehouse-style architecture:
 
@@ -153,53 +160,3 @@ python silver/transform_owid_to_silver.py --snapshot-date YYYY-MM-DD
 
 Build Gold tables and aggregations:
 python gold/build_gold_tables.py --snapshot-date YYYY-MM-DD
-
-
-                         +-----------------------------+
-                         |   OWID CO2 & GHG Dataset    |
-                         |        (Raw CSV)            |
-                         +--------------+--------------+
-                                        |
-                                        |  Web Ingestion
-                                        v
-        +-------------------------------------------------------------+
-        |                 Azure Data Lake Storage Gen2                |
-        |                                                             |
-        |   +--------------------+    +--------------------+          |
-        |   |    BRONZE LAYER    |    |    SILVER LAYER    |          |
-        |   |--------------------|    |--------------------|          |
-        |   | - Raw snapshots    |--->| - Cleaned data     |          |
-        |   | - snapshot_date=   |    | - Schema enforced  |          |
-        |   |   YYYY-MM-DD       |    | - Quality checks   |          |
-        |   | - CSV format       |    | - Parquet format   |          |
-        |   +--------------------+    +--------------------+          |
-        |                                     |                       |
-        |                                     | Dimensional Modeling  |
-        |                                     v                       |
-        |                            +--------------------+           |
-        |                            |     GOLD LAYER     |           |
-        |                            |--------------------|           |
-        |                            | - Analytics ready  |           |
-        |                            | - Star schema      |           |
-        |                            | - Aggregations     |           |
-        |                            +----------+---------+           |
-        |                                       |                     |
-        +---------------------------------------|---------------------+
-                                                |
-                                                v
-                          +-------------------------------------------+
-                          |               GOLD DATA MODEL             |
-                          |-------------------------------------------|
-                          |                                           |
-                          |  Dimension Tables:                        |
-                          |    - dim_country                          |
-                          |                                           |
-                          |  Fact Tables:                             |
-                          |    - fact_emissions                       |
-                          |                                           |
-                          |  Aggregations:                            |
-                          |    - Global emissions by year             |
-                          |    - Top emitting countries               |
-                          |    - CO2 emissions per capita             |
-                          |                                           |
-                          +-------------------------------------------+
