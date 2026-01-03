@@ -8,7 +8,7 @@ This project is intentionally designed to prioritize **correctness, reproducibil
 ---
 
 ## 🏗 Architecture Overview
-                        +-----------------------------+
+                         +-----------------------------+
                          |   OWID CO2 & GHG Dataset    |
                          |        (Raw CSV)            |
                          +--------------+--------------+
