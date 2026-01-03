@@ -138,3 +138,46 @@ blob_service_client.get_blob_client(
 ).upload_blob(open(local_fact, "rb"), overwrite=True)
 
 print("🏆 Gold layer created successfully!")
+
+# -------------------------------------------------------------------
+# 8. Build Gold aggregation: Global emissions by year
+# -------------------------------------------------------------------
+print("📈 Building global emissions aggregation...")
+
+if "co2" not in fact_emissions.columns:
+    raise ValueError("Expected 'co2' column not found in fact table")
+
+agg_global = (
+    fact_emissions
+    .groupby("year", as_index=False)
+    .agg(
+        total_co2=("co2", "sum"),
+        avg_co2=("co2", "mean"),
+        country_count=("country_sk", "nunique")
+    )
+)
+
+# Optional: round for presentation
+agg_global["total_co2"] = agg_global["total_co2"].round(2)
+agg_global["avg_co2"] = agg_global["avg_co2"].round(4)
+
+# -------------------------------------------------------------------
+# 9. Write Gold aggregation
+# -------------------------------------------------------------------
+local_agg = "data/gold/agg_global_emissions_by_year.parquet"
+
+agg_blob_path = (
+    f"agg_global_emissions_by_year/"
+    f"snapshot_date={snapshot_date}/"
+    f"agg_global_emissions_by_year.parquet"
+)
+
+agg_global.to_parquet(local_agg, index=False)
+
+blob_service_client.get_blob_client(
+    container=gold_container,
+    blob=agg_blob_path
+).upload_blob(open(local_agg, "rb"), overwrite=True)
+
+print("🏆 Gold aggregation written successfully!")
+
