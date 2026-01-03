@@ -123,7 +123,13 @@ fact_emissions = fact_emissions[cols]
 # 7. Write Gold tables
 # -------------------------------------------------------------------
 dim_country.to_parquet(local_dim, index=False)
-fact_emissions.to_parquet(local_fact, index=False)
+
+fact_emissions.to_parquet(
+    local_fact,
+    index=False,
+    partition_cols=["year"]
+)
+
 
 print("☁️ Uploading Gold tables...")
 
